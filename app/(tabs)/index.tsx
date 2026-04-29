@@ -25,13 +25,16 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useContacts } from "@/lib/contacts-context";
 import { useColors } from "@/hooks/use-colors";
+import { useLocation } from "@/hooks/use-location";
 
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const { contacts } = useContacts();
+  const { getLocation, getLocationUrl } = useLocation();
   const [showConfirm, setShowConfirm] = useState(false);
   const [activated, setActivated] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
 
   // Pulse animation for the SOS button
   const pulseScale = useSharedValue(1);
@@ -82,16 +85,32 @@ export default function HomeScreen() {
   const handleConfirmSOS = async () => {
     setShowConfirm(false);
     setActivated(true);
+    setGettingLocation(true);
 
     if (Platform.OS !== "web") {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
 
+    // Get location
+    let locationUrl = "";
+    try {
+      const coords = await getLocation();
+      if (coords) {
+        locationUrl = getLocationUrl(coords);
+      }
+    } catch (e) {
+      console.error("Erro ao obter localização:", e);
+    }
+    setGettingLocation(false);
+
     // Trigger SMS for each contact
     for (const contact of contacts) {
-      const message = encodeURIComponent(
-        "🆘 EMERGÊNCIA! Preciso de ajuda urgente! Por favor me ligue ou vá ao meu encontro imediatamente."
-      );
+      let messageText =
+        "🆘 EMERGÊNCIA! Preciso de ajuda urgente! Por favor me ligue ou vá ao meu encontro imediatamente.";
+      if (locationUrl) {
+        messageText += `\n\nMinha localização: ${locationUrl}`;
+      }
+      const message = encodeURIComponent(messageText);
       const smsUrl =
         Platform.OS === "ios"
           ? `sms:${contact.phone}&body=${message}`
@@ -119,15 +138,26 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <IconSymbol name="shield.fill" size={28} color={colors.primary} />
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>SOS Mulher</Text>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+          SOS Mulher
+        </Text>
       </View>
 
       {/* Main Content */}
       <View style={styles.content}>
         {/* Status message */}
-        <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.statusCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
           <IconSymbol
-            name={contacts.length > 0 ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"}
+            name={
+              contacts.length > 0
+                ? "checkmark.circle.fill"
+                : "exclamationmark.triangle.fill"
+            }
             size={20}
             color={contacts.length > 0 ? colors.success : colors.warning}
           />
@@ -166,28 +196,47 @@ export default function HomeScreen() {
               ]}
             >
               <Text style={styles.sosButtonText}>SOS</Text>
-              <IconSymbol name="exclamationmark.triangle.fill" size={28} color="#FFFFFF" />
+              <IconSymbol
+                name="exclamationmark.triangle.fill"
+                size={28}
+                color="#FFFFFF"
+              />
             </Pressable>
           </View>
 
           <Text style={[styles.sosSubLabel, { color: colors.muted }]}>
             {activated
-              ? "✓ Alerta enviado aos seus contatos"
-              : "Aciona mensagem de emergência para seus contatos"}
+              ? gettingLocation
+                ? "📍 Obtendo localização..."
+                : "✓ Alerta enviado aos seus contatos com localização"
+              : "Aciona mensagem de emergência com sua localização"}
           </Text>
         </View>
 
         {/* Contacts quick preview */}
         {contacts.length > 0 && (
-          <View style={[styles.contactsPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.contactsPreview,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
             <Text style={[styles.contactsPreviewTitle, { color: colors.foreground }]}>
               Seus contatos de confiança
             </Text>
             {contacts.map((c) => (
               <View key={c.id} style={styles.contactRow}>
-                <IconSymbol name="person.crop.circle.fill" size={20} color={colors.primary} />
-                <Text style={[styles.contactName, { color: colors.foreground }]}>{c.name}</Text>
-                <Text style={[styles.contactPhone, { color: colors.muted }]}>{c.phone}</Text>
+                <IconSymbol
+                  name="person.crop.circle.fill"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={[styles.contactName, { color: colors.foreground }]}>
+                  {c.name}
+                </Text>
+                <Text style={[styles.contactPhone, { color: colors.muted }]}>
+                  {c.phone}
+                </Text>
               </View>
             ))}
           </View>
@@ -202,20 +251,36 @@ export default function HomeScreen() {
         onRequestClose={handleCancelSOS}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.modalBox,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <View style={[styles.modalIconBg, { backgroundColor: "#FFF0F5" }]}>
-              <IconSymbol name="exclamationmark.triangle.fill" size={40} color={colors.primary} />
+              <IconSymbol
+                name="exclamationmark.triangle.fill"
+                size={40}
+                color={colors.primary}
+              />
             </View>
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>
               Confirmar Emergência
             </Text>
             <Text style={[styles.modalBody, { color: colors.muted }]}>
-              Uma mensagem de SOS será enviada para {contacts.length}{" "}
-              {contacts.length === 1 ? "contato" : "contatos"} de confiança.
+              Uma mensagem de SOS com sua localização será enviada para{" "}
+              {contacts.length} {contacts.length === 1 ? "contato" : "contatos"} de
+              confiança.
             </Text>
             <View style={styles.modalContacts}>
               {contacts.map((c) => (
-                <Text key={c.id} style={[styles.modalContactItem, { color: colors.foreground }]}>
+                <Text
+                  key={c.id}
+                  style={[styles.modalContactItem, { color: colors.foreground }]}
+                >
                   • {c.name} — {c.phone}
                 </Text>
               ))}
@@ -238,7 +303,9 @@ export default function HomeScreen() {
                 pressed && { opacity: 0.7 },
               ]}
             >
-              <Text style={[styles.cancelBtnText, { color: colors.muted }]}>Cancelar</Text>
+              <Text style={[styles.cancelBtnText, { color: colors.muted }]}>
+                Cancelar
+              </Text>
             </Pressable>
           </View>
         </View>

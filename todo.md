@@ -14,3 +14,6 @@
 - [x] Feedback visual e haptico ao pressionar SOS
 - [x] Indicador de contatos cadastrados na tela Home
 - [x] Aviso quando nenhum contato está cadastrado
+- [x] Integrar expo-location para obter coordenadas GPS
+- [x] Incluir localização na mensagem de SOS
+- [x] Gerar link do Google Maps com a localização
