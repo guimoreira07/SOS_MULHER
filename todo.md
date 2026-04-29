@@ -17,3 +17,4 @@
 - [x] Integrar expo-location para obter coordenadas GPS
 - [x] Incluir localização na mensagem de SOS
 - [x] Gerar link do Google Maps com a localização
+- [x] Adicionar botão de chamada rápida para o primeiro contato

@@ -211,6 +211,28 @@ export default function HomeScreen() {
                 : "✓ Alerta enviado aos seus contatos com localização"
               : "Aciona mensagem de emergência com sua localização"}
           </Text>
+
+          {/* Quick call button */}
+          {contacts.length > 0 && (
+            <Pressable
+              onPress={() => {
+                const phoneUrl = `tel:${contacts[0].phone}`;
+                Linking.openURL(phoneUrl).catch((e) =>
+                  console.error("Erro ao ligar:", e)
+                );
+              }}
+              style={({ pressed }) => [
+                styles.quickCallBtn,
+                { backgroundColor: colors.success },
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <IconSymbol name="phone.fill" size={20} color="#FFFFFF" />
+              <Text style={styles.quickCallBtnText}>
+                Ligar para {contacts[0].name}
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         {/* Contacts quick preview */}
@@ -391,6 +413,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
     maxWidth: 260,
     lineHeight: 20,
+  },
+  quickCallBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  quickCallBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
   },
   contactsPreview: {
     borderRadius: 16,
