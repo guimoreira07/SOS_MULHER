@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export type NotificationMethod = "sms" | "whatsapp" | "both";
+
 export interface Contact {
   id: string;
   name: string;
   phone: string;
+  notificationMethod: NotificationMethod;
 }
 
 interface ContactsContextType {

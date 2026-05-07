@@ -15,7 +15,7 @@ import * as Haptics from "expo-haptics";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useContacts, Contact } from "@/lib/contacts-context";
+import { useContacts, Contact, NotificationMethod } from "@/lib/contacts-context";
 import { useColors } from "@/hooks/use-colors";
 
 const MAX_CONTACTS = 3;
@@ -23,7 +23,20 @@ const MAX_CONTACTS = 3;
 interface ContactFormData {
   name: string;
   phone: string;
+  notificationMethod: NotificationMethod;
 }
+
+const METHOD_OPTIONS: { value: NotificationMethod; label: string }[] = [
+  { value: "sms", label: "SMS" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "both", label: "Ambos" },
+];
+
+const METHOD_LABELS: Record<NotificationMethod, string> = {
+  sms: "SMS",
+  whatsapp: "WhatsApp",
+  both: "SMS + WhatsApp",
+};
 
 export default function ContactsScreen() {
   const colors = useColors();
@@ -31,19 +44,19 @@ export default function ContactsScreen() {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [form, setForm] = useState<ContactFormData>({ name: "", phone: "" });
-  const [errors, setErrors] = useState<Partial<ContactFormData>>({});
+  const [form, setForm] = useState<ContactFormData>({ name: "", phone: "", notificationMethod: "sms" });
+  const [errors, setErrors] = useState<Partial<Pick<ContactFormData, "name" | "phone">>>({});
 
   const openAddModal = () => {
     setEditingContact(null);
-    setForm({ name: "", phone: "" });
+    setForm({ name: "", phone: "", notificationMethod: "sms" });
     setErrors({});
     setModalVisible(true);
   };
 
   const openEditModal = (contact: Contact) => {
     setEditingContact(contact);
-    setForm({ name: contact.name, phone: contact.phone });
+    setForm({ name: contact.name, phone: contact.phone, notificationMethod: contact.notificationMethod ?? "sms" });
     setErrors({});
     setModalVisible(true);
   };
@@ -51,12 +64,12 @@ export default function ContactsScreen() {
   const closeModal = () => {
     setModalVisible(false);
     setEditingContact(null);
-    setForm({ name: "", phone: "" });
+    setForm({ name: "", phone: "", notificationMethod: "sms" });
     setErrors({});
   };
 
   const validate = (): boolean => {
-    const newErrors: Partial<ContactFormData> = {};
+    const newErrors: Partial<Pick<ContactFormData, "name" | "phone">> = {};
     if (!form.name.trim()) {
       newErrors.name = "O nome é obrigatório";
     }
@@ -75,9 +88,17 @@ export default function ContactsScreen() {
 
     try {
       if (editingContact) {
-        await updateContact(editingContact.id, { name: form.name.trim(), phone: form.phone.trim() });
+        await updateContact(editingContact.id, {
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          notificationMethod: form.notificationMethod,
+        });
       } else {
-        await addContact({ name: form.name.trim(), phone: form.phone.trim() });
+        await addContact({
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          notificationMethod: form.notificationMethod,
+        });
       }
       if (Platform.OS !== "web") {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -183,6 +204,11 @@ export default function ContactsScreen() {
                     <IconSymbol name="phone.fill" size={13} color={colors.muted} />
                     <Text style={[styles.contactCardPhone, { color: colors.muted }]}>
                       {contact.phone}
+                    </Text>
+                  </View>
+                  <View style={[styles.methodBadge, { backgroundColor: colors.primary + "18" }]}>
+                    <Text style={[styles.methodBadgeText, { color: colors.primary }]}>
+                      {METHOD_LABELS[contact.notificationMethod ?? "sms"]}
                     </Text>
                   </View>
                 </View>
@@ -298,6 +324,35 @@ export default function ContactsScreen() {
               {errors.phone && (
                 <Text style={[styles.errorText, { color: colors.error }]}>{errors.phone}</Text>
               )}
+            </View>
+
+            {/* Notification method selector */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>Enviar alerta via</Text>
+              <View style={[styles.methodSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                {METHOD_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => setForm((f) => ({ ...f, notificationMethod: opt.value }))}
+                    style={({ pressed }) => [
+                      styles.methodOption,
+                      form.notificationMethod === opt.value && { backgroundColor: colors.primary },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.methodOptionText,
+                        form.notificationMethod === opt.value
+                          ? { color: "#FFFFFF" }
+                          : { color: colors.muted },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
 
             {/* Buttons */}
@@ -436,6 +491,33 @@ const styles = StyleSheet.create({
   },
   contactCardPhone: {
     fontSize: 13,
+  },
+  methodBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 2,
+  },
+  methodBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  methodSelector: {
+    flexDirection: "row",
+    borderWidth: 1.5,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  methodOption: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  methodOptionText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
   contactActions: {
     flexDirection: "row",

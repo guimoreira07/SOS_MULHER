@@ -27,6 +27,12 @@ import { useContacts } from "@/lib/contacts-context";
 import { useColors } from "@/hooks/use-colors";
 import { useLocation } from "@/hooks/use-location";
 
+const METHOD_LABELS: Record<string, string> = {
+  sms: "SMS",
+  whatsapp: "WhatsApp",
+  both: "SMS + WhatsApp",
+};
+
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -103,7 +109,7 @@ export default function HomeScreen() {
     }
     setGettingLocation(false);
 
-    // Trigger SMS for each contact
+    // Trigger alerts for each contact based on their notification method
     for (const contact of contacts) {
       let messageText =
         "🆘 EMERGÊNCIA! Preciso de ajuda urgente! Por favor me ligue ou vá ao meu encontro imediatamente.";
@@ -111,18 +117,36 @@ export default function HomeScreen() {
         messageText += `\n\nMinha localização: ${locationUrl}`;
       }
       const message = encodeURIComponent(messageText);
-      const smsUrl =
-        Platform.OS === "ios"
-          ? `sms:${contact.phone}&body=${message}`
-          : `sms:${contact.phone}?body=${message}`;
+      const method = contact.notificationMethod ?? "sms";
 
-      try {
-        const canOpen = await Linking.canOpenURL(smsUrl);
-        if (canOpen) {
-          await Linking.openURL(smsUrl);
+      if (method === "sms" || method === "both") {
+        const smsUrl =
+          Platform.OS === "ios"
+            ? `sms:${contact.phone}&body=${message}`
+            : `sms:${contact.phone}?body=${message}`;
+        try {
+          const canOpen = await Linking.canOpenURL(smsUrl);
+          if (canOpen) {
+            await Linking.openURL(smsUrl);
+          }
+        } catch (e) {
+          console.error("Erro ao abrir SMS:", e);
         }
-      } catch (e) {
-        console.error("Erro ao abrir SMS:", e);
+      }
+
+      if (method === "whatsapp" || method === "both") {
+        const digits = contact.phone.replace(/\D/g, "");
+        const waUrl = `whatsapp://send?phone=${digits}&text=${message}`;
+        try {
+          const canOpen = await Linking.canOpenURL(waUrl);
+          if (canOpen) {
+            await Linking.openURL(waUrl);
+          } else {
+            await Linking.openURL(`https://wa.me/${digits}?text=${message}`);
+          }
+        } catch (e) {
+          console.error("Erro ao abrir WhatsApp:", e);
+        }
       }
     }
 
@@ -259,6 +283,11 @@ export default function HomeScreen() {
                 <Text style={[styles.contactPhone, { color: colors.muted }]}>
                   {c.phone}
                 </Text>
+                <View style={[styles.methodBadge, { backgroundColor: colors.primary + "18" }]}>
+                  <Text style={[styles.methodBadgeText, { color: colors.primary }]}>
+                    {METHOD_LABELS[c.notificationMethod ?? "sms"]}
+                  </Text>
+                </View>
               </View>
             ))}
           </View>
@@ -303,7 +332,10 @@ export default function HomeScreen() {
                   key={c.id}
                   style={[styles.modalContactItem, { color: colors.foreground }]}
                 >
-                  • {c.name} — {c.phone}
+                  • {c.name} — {c.phone}{" "}
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>
+                    ({METHOD_LABELS[c.notificationMethod ?? "sms"]})
+                  </Text>
                 </Text>
               ))}
             </View>
@@ -452,6 +484,15 @@ const styles = StyleSheet.create({
   },
   contactPhone: {
     fontSize: 13,
+  },
+  methodBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  methodBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
   },
   // Modal
   modalOverlay: {
